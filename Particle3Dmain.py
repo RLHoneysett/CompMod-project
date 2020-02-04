@@ -32,7 +32,7 @@ class Particle3D(object):
         """
         self.position = np.array(pos)
         self.velocity = np.array(vel)
-        self.mass = mass
+        self.mass = float(mass)
         self.label = label
 
     def __str__(self):
@@ -73,7 +73,7 @@ class Particle3D(object):
         Includes Periodic Boundary Condition
         """
         force = np.array(force)
-        self.position += dt*self.velocity + 0.5 * dt**2 * force/self.mass
+        self.position += (dt*self.velocity + 0.5 * dt**2 * force/self.mass)
         self.position = np.mod(self.position,L)    # Gives position of image of particle in original box
 
     @staticmethod
@@ -120,7 +120,7 @@ class Particle3D(object):
         All values are in reduced units
         """
         r = np.linalg.norm(Particle3D.separation(par1, par2, L))
-        if r < rc and par1 != par2:
+        if r < rc and par1 != par2 and r > 0:
             lj_force = 48 * (1/(r**14) - 1/(2*r**8)) * Particle3D.separation(par1, par2, L)
         else:
             lj_force = 0
@@ -168,6 +168,37 @@ class Particle3D(object):
             forces.append(force_i.tolist())
         forces = np.array(forces)
         return forces
+    
+    @staticmethod
+    def leap_pos(particles,dt,rc,L):
+        """
+        Performs a second-order position update on every object in a list of
+        Particle3D objects.
+
+        :param dt: time-step
+        :param rc: cut-off distance
+        :param L: box side length
+        """
+        forces = Particle3D.lj_forces(particles,rc,L)
+        for i in range(len(particles)):
+            force = np.array(forces[i])
+            particles[i].leap_pos_single(dt,force,L)
+        
+    @staticmethod
+    def leap_vel(particles,dt,rc,L):
+        """
+        Performs a first-order velocity update on every object in a list of
+        Particle3D objects
+        
+        :param dt: time-step
+        :param rc: cut-off distance
+        :param L: box side length
+        """
+        forces = Particle3D.lj_forces(particles,rc,L)
+        for i in range(len(particles)):
+            force = np.array(forces[i])
+            particles[i].leap_vel_single(dt,force)
+        
 
 """
 I feel like we can add some functionality here so that once it gets far away enough it doesn't 
@@ -185,7 +216,8 @@ def main():
     #Take user input
     numpar = int(input("Enter number of particles"))
     rc = float(input("Enter cut-off radius (suggested: 3.5)"))
-    L = float(input("Enter box-size (suggested: 10)"))
+    #L = float(input("Enter box-size (suggested: 10)"))
+    
     numstep = int(input("Enter number of steps"))
     dt = float(input("Enter timestep"))
     
@@ -201,6 +233,7 @@ def main():
         sigma = float(param[1])     #van der Waals radius
         T = float(param[2])         #reduced temperature
         rho = float(param[3])       #reduced density
+        #TEMPORARY TEMP FOR TESTING
         
 
     trajout = open(traj_output, "w")
@@ -209,9 +242,23 @@ def main():
     particles = []
     for i in range(numpar):
         particles.append(Particle3D.from_file(par_input))
-    MDU.set_initial_positions(rho, particles)
+    L = MDU.set_initial_positions(rho, particles)[0]
+    MDU.set_initial_velocities(T, particles)
     
-    print (str(Particle3D.lj_forces(particles,rc,L)))
+    #Position update time integrator
+    for i in range(numstep):
+        print("SIMULATION STEP %s OUT OF %d" %(i,numstep))
+        trajout.write(str(numpar)+"\n")
+        trajout.write("Point = "+str(i+1)+"\n")
+        if i != 0:
+            Particle3D.leap_pos(particles,dt,rc,L)
+            Particle3D.leap_vel(particles,dt,rc,L)
+        else:
+            None
+        for j in range(len(particles)):
+            par = particles[j]
+            trajout.write(str(par)+"\n")
+    
     
         
     
