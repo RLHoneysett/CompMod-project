@@ -205,7 +205,51 @@ I feel like we can add some functionality here so that once it gets far away eno
 keep checking every particle. Will have to look at how the crystal forms to see at what point 
 we can be sure we can stop counting.
 """
+
+    @staticmethod
+    def energy(particles, rc, L):
+        """
+        Calculates the kinetic, potential, and total energy of the system
+        of Particle3D objects
         
+        :param rc: cut-off distance
+        :param L: box side length
+        """
+        KE = 0
+        for i in range(len(particles)):
+            KE += 0.5 * particles[i].mass * (np.linalg.norm(particles[i].velocity))^2
+    
+            PE = 0
+            for i in range(len(particles)):
+                for j in range(len(particles)):
+                    if j>i:
+                        PE += par3d.lj_potential_single(par[i], par[j], rc, L)
+                    else:
+                        continue
+        energy = KE + PE
+        return KE, PE, energy
+
+    @staticmethod
+    def mean_squared_displacement(particles, particles_init, L):
+        """
+        Compares the current and initial positions of every particle in the list to
+        determine the average displacement of the system.
+
+        :param L: box side length
+        """
+        displacement = 0
+        for i in range(len(particles)):
+            displacement += (np.linalg.norm(Particle3D.separation(particles[i],particles_init[i],L)))^2
+        msd = displacement / len(particles)
+        return msd
+
+
+
+
+
+
+
+
 
 
 #Test function
@@ -242,12 +286,14 @@ def main():
     particles = []
     for i in range(numpar):
         particles.append(Particle3D.from_file(par_input))
+        particles[i].label = particles[i].label +str(i)
+        print (particles[i].label)
     L = MDU.set_initial_positions(rho, particles)[0]
     MDU.set_initial_velocities(T, particles)
     
     #Position update time integrator
     for i in range(numstep):
-        print("SIMULATION STEP %s OUT OF %d" %(i,numstep))
+        print("SIMULATION STEP %s OUT OF %d" %(i+1,numstep))
         trajout.write(str(numpar)+"\n")
         trajout.write("Point = "+str(i+1)+"\n")
         if i != 0:
