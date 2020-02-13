@@ -8,7 +8,7 @@ import numpy as np
 import sys
 import random
 import MDUtilities as MDU
-
+import matplotlib.pyplot as plt
 
 class Particle3D(object):
     """
@@ -198,13 +198,12 @@ class Particle3D(object):
         for i in range(len(particles)):
             force = np.array(forces[i])
             particles[i].leap_vel_single(dt,force)
-        
 
-"""
-I feel like we can add some functionality here so that once it gets far away enough it doesn't 
-keep checking every particle. Will have to look at how the crystal forms to see at what point 
-we can be sure we can stop counting.
-"""
+            """
+            I feel like we can add some functionality here so that once it gets far away enough it doesn't 
+            keep checking every particle. Will have to look at how the crystal forms to see at what point 
+            we can be sure we can stop counting.
+            """
 
     @staticmethod
     def energy(particles, rc, L):
@@ -242,6 +241,40 @@ we can be sure we can stop counting.
             displacement += (np.linalg.norm(Particle3D.separation(particles[i],particles_init[i],L)))^2
         msd = displacement / len(particles)
         return msd
+
+    @staticmethod
+    def radial_distribution(particles, L):
+        """
+        Calculates the radial distribution function of the system by calculating the
+        probability of finding a particle within a spherical slice dr, distance r away from a
+        reference particle.
+        
+        :param L: box side length
+        """
+        distances = []
+        for p in particles:
+            for q in particles:
+                if p != q:
+                    distances.append(np.linalg.norm(Particle3D.separation(p,q,L)))
+                else:
+                    continue
+        distances = np.array(distances)
+        distances = np.sort(distances)
+        distances = np.around(distances, decimals=1)
+        
+        #Loop through and add up how many particles are in each 0.1 bin
+        rdf = []
+        rdf_x_axis = np.around(np.arange(0,L,0.1),decimals=1)
+        j = 0
+        for i in range(len(rdf_x_axis)):
+            rdf.append(0)
+            while j < len(distances) and rdf_x_axis[i] == distances[j]:
+                rdf[i] += 1
+                j+=1
+            else:
+                continue
+        return rdf, rdf_x_axis
+        
 
 
 
@@ -291,9 +324,20 @@ def main():
     L = MDU.set_initial_positions(rho, particles)[0]
     MDU.set_initial_velocities(T, particles)
     
+    #Plot initial RDF (unnormalised or even properly calculated)
+    
+    
     #Position update time integrator
+    datacounter=0
     for i in range(numstep):
         print("SIMULATION STEP %s OUT OF %d" %(i+1,numstep))
+        
+        if datacounter == 30 or i ==0:
+            rdf, rdf_x_axis = Particle3D.radial_distribution(particles,L)
+            plt.plot(rdf_x_axis,rdf)
+            datacounter = 0
+        datacounter +=1
+        
         trajout.write(str(numpar)+"\n")
         trajout.write("Point = "+str(i+1)+"\n")
         if i != 0:
@@ -304,7 +348,7 @@ def main():
         for j in range(len(particles)):
             par = particles[j]
             trajout.write(str(par)+"\n")
-    
+    plt.show()
     
         
     
