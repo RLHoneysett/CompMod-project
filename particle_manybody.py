@@ -7,24 +7,12 @@ import math
 import numpy as np
 import sys
 import random
-import MDUtilites as mdu
-import Particle3D as par3d
+import MDUtilities as mdu
+from Particle3D import Particle3D as par3d
+import time
 
-#calculate energies
-def energy(particles, rc, L):
-    KE = 0
-    for i in range(len(particles)):
-        KE += 0.5 * particles[i].mass * (np.linalg.norm(particles[i].velocity))^2
-    
-    PE = 0
-    for i in range(len(particles)):
-        for j in range(len(particles)):
-            if j>i:
-                PE += par3d.lj_potential_single(par[i], par[j], rc, L)
-            else:
-                continue
-    energy = KE + PE
-    return KE, PE, energy
+start_time = time.time()
+
 #main code
 def main():
     
@@ -33,6 +21,8 @@ def main():
     **Particle data format**
     x_pos y_pos z_pos x_vel y_vel z_vel mass label
     
+    Label should just be the element type
+    
     **Param data format**
     numpar numstep dt rc T ρ ε σ
     
@@ -40,8 +30,8 @@ def main():
     numpar \\ point number \\ label[0] x_pos y_pos z_pos \\...\\ label[numpar] x_pos y_pos z_pos
 
     **Obsv Out format**
-    !!!TO BE DECIDED!!!
-    
+    KineticEnergy  PotentialEnergy  TotalEnergy \\ MeanSquaredDisplacement \\ RadialDistributionFunction
+
     **Sys argument format**
     parData paramData trajOut obsvOut
     """
@@ -68,7 +58,6 @@ def main():
     for i in range(numpar):
         particles.append(par3d.from_file(par_input))
         particles[i].label += str(i)
-        
     
     
     # Set box length and initial conditions
@@ -79,6 +68,35 @@ def main():
     particles_init = particles
 
     # Time integrator with outputs
-    with open(traj_output, "w") as trajout and open(obsv_output, "w") as obsvout:
+    with open(traj_output, "w") as trajout , open(obsv_output, "w") as obsvout:
+        len_par = len(particles)
+        obsvout_counter = 0
+        trajout_counter = 0
         for i in range(numstep):
+        # Write trajectory data every 5 steps
+            if trajout_counter != 5 and i != 0:
+                trajout_counter += 1
+            else:
+                trajout.write("%s \n Point = %s \n"%(numpar,i+1))
+                for j in particles:
+                    trajout.write("%s \n"%(j))
+                trajout_counter = 0
         
+            # Write observable data every 20 steps and print step to terminal
+            if obsvout_counter != 19 and i != 0:
+                obsvout_counter += 1
+            else:
+                ke,pe,e_total = par3d.energy(particles, rc, L)
+                msd = par3d.mean_squared_displacement(particles, particles_init, L)
+                rdf = par3d.radial_distribution(particles, L)
+                obsvout.write("%s  %s  %s \n %s \n %s"%(ke, pe, e_total, msd, rdf))
+                print("SIMULATION STEP %s OF %d"%(i,numstep))
+                obsvout_counter = 0
+
+            # Velocity and position updates every step
+            par3d.leap_pos(particles,dt,rc,L)
+            par3d.leap_vel(particles,dt,rc,L)
+
+main()
+
+print("--- %s seconds ---" %(time.time() - start_time))
