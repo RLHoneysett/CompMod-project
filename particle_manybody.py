@@ -15,7 +15,6 @@ start_time = time.time()
 
 #main code
 def main():
-    
     """
     Read sys arguments to define parameters
     **Particle data format**
@@ -69,11 +68,17 @@ def main():
 
     # Time integrator with outputs
     with open(traj_output, "w") as trajout , open(obsv_output, "w") as obsvout:
+        calc_msd = par3d.mean_squared_displacement
+        calc_rd = par3d.radial_distribution
+        calc_energy = par3d.energy
+        leap_pos = par3d.leap_pos
+        leap_vel = par3d.leap_vel
+        
         len_par = len(particles)
         obsvout_counter = 0
         trajout_counter = 0
         for i in range(numstep):
-        # Write trajectory data every 5 steps
+            # Write trajectory data every 5 steps
             if trajout_counter != 5 and i != 0:
                 trajout_counter += 1
             else:
@@ -86,17 +91,18 @@ def main():
             if obsvout_counter != 19 and i != 0:
                 obsvout_counter += 1
             else:
-                ke,pe,e_total = par3d.energy(particles, rc, L)
-                msd = par3d.mean_squared_displacement(particles, particles_init, L)
-                rdf = par3d.radial_distribution(particles, L)
+                ke,pe,e_total = calc_energy(particles, rc, L)
+                msd = calc_msd(particles, particles_init, L)
+                rdf = calc_rd(particles, L)
                 obsvout.write("%s  %s  %s \n %s \n %s"%(ke, pe, e_total, msd, rdf))
-                #print("SIMULATION STEP %s OF %d"%(i,numstep))
+                print("SIMULATION STEP %s OF %d"%(i,numstep))
                 obsvout_counter = 0
 
             # Velocity and position updates every step
-            par3d.leap_pos(particles,dt,rc,L)
-            par3d.leap_vel(particles,dt,rc,L)
+            leap_pos(particles,dt,rc,L)
+            leap_vel(particles,dt,rc,L)
 
 main()
 
 print("--- %s seconds ---" %(time.time() - start_time))
+

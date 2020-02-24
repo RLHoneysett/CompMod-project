@@ -155,14 +155,16 @@ class Particle3D(object):
         """
         loop_range = len(particles)
         forces = []
+        calc_force = Particle3D.lj_force_single
+        calc_separation = Particle3D.separation
         for i in range(loop_range):
             force_i = np.array([0.,0.,0.])
             par1 = particles[i]
             for j in range(loop_range):
                 par2 = particles[j]
-                r = np.linalg.norm(Particle3D.separation(par1,par2,L))
+                r = np.linalg.norm(calc_separation(par1,par2,L))
                 if j != i and r < rc:
-                    force_i += Particle3D.lj_force_single(par1,par2,rc,L)
+                    force_i += calc_force(par1,par2,rc,L)
                 else:
                     continue
             forces.append(force_i.tolist())
@@ -210,6 +212,7 @@ class Particle3D(object):
         :param rc: cut-off distance
         :param L: box side length
         """
+        calc_potential = Particle3D.lj_potential_single
         KE = 0
         PE = 0
         for i in particles:
@@ -217,7 +220,7 @@ class Particle3D(object):
             
             for j in (particles):
                 if particles.index(j) < particles.index(i):
-                    PE += Particle3D.lj_potential_single(i, j, rc, L)
+                    PE += calc_potential(i, j, rc, L)
 
         energy = KE + PE
         return KE, PE, energy
@@ -230,10 +233,11 @@ class Particle3D(object):
 
         :param L: box side length
         """
+        calc_separation = Particle3D.separation
         displacement = 0
         loop_range = len(particles)
         for i in range(loop_range):
-            displacement += (np.linalg.norm(Particle3D.separation(particles[i],particles_init[i],L)))**2
+            displacement += (np.linalg.norm(calc_separation(particles[i],particles_init[i],L)))**2
         msd = displacement / loop_range
         return msd
 
@@ -246,11 +250,12 @@ class Particle3D(object):
         
         :param L: box side length
         """
+        calc_separation = Particle3D.separation
         distances = []
         for p in particles:
             for q in particles:
                 if p != q:
-                    distances.append(np.linalg.norm(Particle3D.separation(p,q,L)))
+                    distances.append(np.linalg.norm(calc_separation(p,q,L)))
                 else:
                     continue
         distances = np.array(distances)
