@@ -90,7 +90,7 @@ def main():
                 msd = par3d.mean_squared_displacement(particles, particles_init, L)
                 rdf = par3d.radial_distribution(particles, L)
                 obsvout.write("%s  %s  %s \n %s \n %s"%(ke, pe, e_total, msd, rdf))
-                print("SIMULATION STEP %s OF %d"%(i,numstep))
+                #print("SIMULATION STEP %s OF %d"%(i,numstep))
                 obsvout_counter = 0
 
             # Velocity and position updates every step

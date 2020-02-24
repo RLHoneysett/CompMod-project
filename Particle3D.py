@@ -42,7 +42,7 @@ class Particle3D(object):
         "<label> x y z"
         This is the VMD compatible format
         """
-        return str(self.label)+' '+str(self.position[0])+' '+str(self.position[1])+' '+str(self.position[2])
+        return '%s %s %s %s'%(self.label,self.position[0],self.position[1],self.position[2])
 
     def kinetic_energy(self):
         """
@@ -120,8 +120,8 @@ class Particle3D(object):
         All values are in reduced units
         """
         r = np.linalg.norm(Particle3D.separation(par1, par2, L))
-        if r < rc and par1 != par2 and r > 0:
-            lj_force = 48 * (1/(r**14) - 1/(2*r**8)) * Particle3D.separation(par1, par2, L)
+        if 0 < r < rc and par1 != par2 :
+            lj_force = 48 * (r**-14 - 0.5*r**-8) * Particle3D.separation(par1, par2, L)
         else:
             lj_force = 0
 
@@ -138,7 +138,7 @@ class Particle3D(object):
         All values are in reduced units
         """
         r = np.linalg.norm(Particle3D.separation(par1, par2, L))
-        if r < rc:
+        if 0 < r < rc:
             lj_pe = 4 * (r**-12 - r**-6)
         else:
             lj_pe = 0
@@ -156,14 +156,13 @@ class Particle3D(object):
         loop_range = len(particles)
         forces = []
         for i in range(loop_range):
-            force_i = np.array([0,0,0])
+            force_i = np.array([0.,0.,0.])
             par1 = particles[i]
             for j in range(loop_range):
                 par2 = particles[j]
                 r = np.linalg.norm(Particle3D.separation(par1,par2,L))
                 if j != i and r < rc:
-                    force_ij = Particle3D.lj_force_single(par1,par2,rc,L)
-                    force_i = force_i + force_ij
+                    force_i += Particle3D.lj_force_single(par1,par2,rc,L)
                 else:
                     continue
             forces.append(force_i.tolist())
@@ -183,7 +182,7 @@ class Particle3D(object):
         forces = Particle3D.lj_forces(particles,rc,L)
         loop_range = len(particles)
         for i in range(loop_range):
-            force = np.array(forces[i])
+            force = forces[i]
             particles[i].leap_pos_single(dt,force,L)
         
     @staticmethod
@@ -199,14 +198,8 @@ class Particle3D(object):
         forces = Particle3D.lj_forces(particles,rc,L)
         loop_range = len(particles)
         for i in range(loop_range):
-            force = np.array(forces[i])
+            force = forces[i]
             particles[i].leap_vel_single(dt,force)
-
-        """
-        I feel like we can add some functionality here so that once it gets far away enough it doesn't 
-        keep checking every particle. Will have to look at how the crystal forms to see at what point 
-        we can be sure we can stop counting.
-        """
 
     @staticmethod
     def energy(particles, rc, L):
