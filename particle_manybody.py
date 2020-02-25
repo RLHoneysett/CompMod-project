@@ -10,12 +10,13 @@ import random
 import MDUtilities as mdu
 from Particle3D import Particle3D as par3d
 import time
+from matplotlib import pyplot as plt
+import copy
 
 start_time = time.time()
 
 #main code
 def main():
-    
     """
     Read sys arguments to define parameters
     **Particle data format**
@@ -58,22 +59,29 @@ def main():
     for i in range(numpar):
         particles.append(par3d.from_file(par_input))
         particles[i].label += str(i)
-    
-    
+
     # Set box length and initial conditions
     L = mdu.set_initial_positions(rho, particles)[0]
     mdu.set_initial_velocities(T, particles)
 
     # List of particles in their initial state as ref point
-    particles_init = particles
+    particles_init = copy.deepcopy(particles)
 
     # Time integrator with outputs
     with open(traj_output, "w") as trajout , open(obsv_output, "w") as obsvout:
+
         len_par = len(particles)
         obsvout_counter = 0
         trajout_counter = 0
+        progress_five_percent = int(numstep/20)
+        progress_counter = 0
+        
+        #test plots init
+        msd_x = []
+        msd_y = []
+        
         for i in range(numstep):
-        # Write trajectory data every 5 steps
+            # Write trajectory data every 5 steps
             if trajout_counter != 5 and i != 0:
                 trajout_counter += 1
             else:
@@ -88,15 +96,29 @@ def main():
             else:
                 ke,pe,e_total = par3d.energy(particles, rc, L)
                 msd = par3d.mean_squared_displacement(particles, particles_init, L)
-                rdf = par3d.radial_distribution(particles, L)
-                obsvout.write("%s  %s  %s \n %s \n %s"%(ke, pe, e_total, msd, rdf))
-                #print("SIMULATION STEP %s OF %d"%(i,numstep))
+                rdf, rdf_x_axis = par3d.radial_distribution(particles, L)
+                obsvout.write("%s  %s  %s \n %s \n %s \n \n"%(ke, pe, e_total, msd, rdf))
                 obsvout_counter = 0
+                
+            # Output progress to terminal
+            if i%progress_five_percent == 0:
+                print("%s%%  Completed"%(progress_counter))
+                progress_counter += 5
+                
+                #test plots
+                msd_x.append(i)
+                msd_y.append(msd)
+                
+                plt.plot(rdf_x_axis, rdf)
 
             # Velocity and position updates every step
             par3d.leap_pos(particles,dt,rc,L)
             par3d.leap_vel(particles,dt,rc,L)
-
+        plt.show()
+        plt.plot(msd_x,msd_y)
+        plt.show()
+    
 main()
 
 print("--- %s seconds ---" %(time.time() - start_time))
+

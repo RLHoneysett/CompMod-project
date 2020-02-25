@@ -253,9 +253,7 @@ class Particle3D(object):
                     distances.append(np.linalg.norm(Particle3D.separation(p,q,L)))
                 else:
                     continue
-        distances = np.array(distances)
-        distances = np.sort(distances)
-        distances = np.around(distances, decimals=1)
+        distances = np.around( np.sort(np.array(distances)), decimals=1 )
         
         #Loop through and add up how many particles are in each 0.1 bin
         rdf = []
