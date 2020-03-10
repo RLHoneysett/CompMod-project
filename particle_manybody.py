@@ -25,7 +25,7 @@ def main():
     Label should just be the element type
     
     **Param data format**
-    numpar numstep dt rc T ρ ε σ
+    numpar numstep dt rc T ρ
     
     **Traj Out format**
     numpar \\ point number \\ label[0] x_pos y_pos z_pos \\...\\ label[numpar] x_pos y_pos z_pos
@@ -51,8 +51,6 @@ def main():
         rc = float(param[3])
         T = float(param[4])
         rho = float(param[5])
-        epsilon = float(param[6])
-        sigma = float(param[7])
         
     # Initialise particles
     particles = []
@@ -75,47 +73,79 @@ def main():
         trajout_counter = 0
         progress_five_percent = int(numstep/20)
         progress_counter = 0
+        obsv_data_points = 0
         
         #test plots init
         msd_x = []
         msd_y = []
+        energy_x = []
+        energy_y = []
+        ke_y = []
+        pe_y = []
         
+        rdf, rdf_x_axis = par3d.radial_distribution(particles,L)
+        
+        # Initial force
+        forces = par3d.lj_forces(particles,rc,L)
+
         for i in range(numstep):
-            # Write trajectory data every 5 steps
-            if trajout_counter != 5 and i != 0:
-                trajout_counter += 1
-            else:
+            # Write trajectory data every 3 steps
+            
+            if trajout_counter == 2:
                 trajout.write("%s \n Point = %s \n"%(numpar,i+1))
                 for j in particles:
                     trajout.write("%s \n"%(j))
                 trajout_counter = 0
-        
-            # Write observable data every 20 steps and print step to terminal
-            if obsvout_counter != 19 and i != 0:
-                obsvout_counter += 1
             else:
+                trajout_counter += 1
+        
+            # Write observable data every 20 steps and print progress to terminal
+            
+            if obsvout_counter == 19 or i == 0:
                 ke,pe,e_total = par3d.energy(particles, rc, L)
-                msd = par3d.mean_squared_displacement(particles, particles_init, L)
-                rdf, rdf_x_axis = par3d.radial_distribution(particles, L)
+
+                msd=(par3d.mean_squared_displacement(particles, particles_init, L))
+                msd_y.append(msd)
+                msd_x.append(i)
+                
+                energy_x.append(i)
+                ke_y.append(ke)
+                pe_y.append(pe)
+                energy_y.append(e_total)
+
+                rdf += par3d.radial_distribution(particles,L)[0]
                 obsvout.write("%s  %s  %s \n %s \n %s \n \n"%(ke, pe, e_total, msd, rdf))
                 obsvout_counter = 0
+                obsv_data_points += 1
+            else:
+                obsvout_counter += 1
                 
             # Output progress to terminal
             if i%progress_five_percent == 0:
                 print("%s%%  Completed"%(progress_counter))
                 progress_counter += 5
                 
-                #test plots
-                msd_x.append(i)
-                msd_y.append(msd)
-                
-                plt.plot(rdf_x_axis, rdf)
+            #test plots
 
             # Velocity and position updates every step
-            par3d.leap_pos(particles,dt,rc,L)
-            par3d.leap_vel(particles,dt,rc,L)
+            particles = par3d.leap_pos(particles,dt,rc,L,forces)
+            forces_new = par3d.lj_forces(particles,rc,L)
+            particles = par3d.leap_vel(particles,dt,rc,L,(forces+forces_new)/2)
+            forces = forces_new
+
+        # Plot obsv data
+        rdf = rdf / obsv_data_points
+        plt.title('RDF vs data points')
+        plt.plot(rdf_x_axis, rdf/obsv_data_points)
         plt.show()
+        plt.title('MSD vs data points')
         plt.plot(msd_x,msd_y)
+        plt.show()
+        plt.title('Energies vs data points')
+        plt.plot(energy_x,energy_y, label='Total Energy')
+        plt.plot(energy_x,ke_y, label='KE')
+        plt.plot(energy_x,pe_y, label='PE')
+        plt.legend()
         plt.show()
     
 main()

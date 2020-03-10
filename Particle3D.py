@@ -9,6 +9,7 @@ import sys
 import random
 import MDUtilities as MDU
 import matplotlib.pyplot as plt
+import time
 
 class Particle3D(object):
     """
@@ -121,7 +122,7 @@ class Particle3D(object):
         """
         r = np.linalg.norm(Particle3D.separation(par1, par2, L))
         if 0 < r < rc and par1 != par2 :
-            lj_force = 48 * (r**-14 - 0.5*r**-8) * Particle3D.separation(par1, par2, L)
+            lj_force = 48 * (1/(r**14) - 1/(2*r**8)) * Particle3D.separation(par1, par2, L)
         else:
             lj_force = 0
 
@@ -153,24 +154,27 @@ class Particle3D(object):
         :param rc: cut-off distance
         :L: box side length
         """
+        start_time_forces=time.time()
+
         loop_range = len(particles)
-        forces = []
+
+        forces = np.zeros((loop_range,3))
         for i in range(loop_range):
-            force_i = np.array([0.,0.,0.])
             par1 = particles[i]
-            for j in range(loop_range):
+            for j in range(i):
                 par2 = particles[j]
-                r = np.linalg.norm(Particle3D.separation(par1,par2,L))
-                if j != i and r < rc:
-                    force_i += Particle3D.lj_force_single(par1,par2,rc,L)
+                if np.linalg.norm(Particle3D.separation(par1,par2,L)) < rc:
+                    force_ij = Particle3D.lj_force_single(par1, par2,rc, L)
+                    forces[i] += force_ij
+                    forces[j] += -force_ij
                 else:
                     continue
-            forces.append(force_i.tolist())
-        forces = np.array(forces)
+ 
+        #print("--- %s s for Forces to run ---"%(time.time()-start_time_forces))
         return forces
     
     @staticmethod
-    def leap_pos(particles,dt,rc,L):
+    def leap_pos(particles,dt,rc,L,forces):
         """
         Performs a second-order position update on every object in a list of
         Particle3D objects.
@@ -179,14 +183,27 @@ class Particle3D(object):
         :param rc: cut-off distance
         :param L: box side length
         """
-        forces = Particle3D.lj_forces(particles,rc,L)
-        loop_range = len(particles)
-        for i in range(loop_range):
-            force = forces[i]
-            particles[i].leap_pos_single(dt,force,L)
+        start_time_leappos = time.time()
+
+        # Slower, may delete
+
+        #forces = Particle3D.lj_forces(particles,rc,L)
+        #loop_range = len(particles)
+        #for i in range(loop_range):
+            #force = forces[i]
+            #particles[i].leap_pos_single(dt,force,L)
+
+        def leap_pos_sing(particles,p,dt,forces,L):
+            p.position += dt*p.velocity + 0.5*dt**2 * forces[particles.index(p)]/p.mass
+            p.position = np.mod(p.position,L)
+            return p
+        particles = list(map(lambda p: leap_pos_sing(particles,p,dt,forces,L), particles))
+
+        #print("--- %s s for leap_pos to run ---"%(time.time() - start_time_leappos))
+        return particles
         
     @staticmethod
-    def leap_vel(particles,dt,rc,L):
+    def leap_vel(particles,dt,rc,L,forces):
         """
         Performs a first-order velocity update on every object in a list of
         Particle3D objects
@@ -195,11 +212,23 @@ class Particle3D(object):
         :param rc: cut-off distance
         :param L: box side length
         """
-        forces = Particle3D.lj_forces(particles,rc,L)
-        loop_range = len(particles)
-        for i in range(loop_range):
-            force = forces[i]
-            particles[i].leap_vel_single(dt,force)
+        start_time_leapvel = time.time()
+
+        #Slower, may delete
+
+        #forces = Particle3D.lj_forces(particles,rc,L)
+        #loop_range = len(particles)
+        #for i in range(loop_range):
+            #force = forces[i]
+            #particles[i].leap_vel_single(dt,force)
+
+        def leap_vel_sing(particles,p,dt,forces):
+            p.velocity += dt * forces[particles.index(p)] / p.mass
+            return p
+        particles = list(map(lambda p: leap_vel_sing(particles,p,dt,forces), particles))
+            
+        #print("---%s s for leap_vel to run ---"%(time.time()- start_time_leapvel))
+        return particles
 
     @staticmethod
     def energy(particles, rc, L):
@@ -253,7 +282,7 @@ class Particle3D(object):
                     distances.append(np.linalg.norm(Particle3D.separation(p,q,L)))
                 else:
                     continue
-        distances = np.around( np.sort(np.array(distances)), decimals=1 )
+        distances = np.around(np.sort(np.array(distances)), decimals=1 )
         
         #Loop through and add up how many particles are in each 0.1 bin
         rdf = []
@@ -267,81 +296,5 @@ class Particle3D(object):
                 j+=1
             else:
                 continue
-        return rdf, rdf_x_axis
+        return np.array(rdf), rdf_x_axis
         
-
-
-
-
-
-
-
-
-
-
-#Test function
-"""
-
-def main():
-#new test code for list of particles
-    #Take user input
-    numpar = int(input("Enter number of particles"))
-    rc = float(input("Enter cut-off radius (suggested: 3.5)"))
-    #L = float(input("Enter box-size (suggested: 10)"))
-    
-    numstep = int(input("Enter number of steps"))
-    dt = float(input("Enter timestep"))
-    
-    #Open input and output files and define parameters
-    par_input = sys.argv[1]
-    param_input = sys.argv[2]
-    traj_output = sys.argv[3]
-    
-    with open(param_input, "r") as paramdata:
-        line = paramdata.readline()
-        param = line.split()
-        epsilon = float(param[0])   #well depth
-        sigma = float(param[1])     #van der Waals radius
-        T = float(param[2])         #reduced temperature
-        rho = float(param[3])       #reduced density
-        #TEMPORARY TEMP FOR TESTING
-        
-
-    trajout = open(traj_output, "w")
-
-    #Initialise particles
-    particles = []
-    for i in range(numpar):
-        particles.append(Particle3D.from_file(par_input))
-        particles[i].label = particles[i].label +str(i)
-        print (particles[i].label)
-    L = MDU.set_initial_positions(rho, particles)[0]
-    MDU.set_initial_velocities(T, particles)
-    
-    #Plot initial RDF (unnormalised or even properly calculated)
-    
-    
-    #Position update time integrator
-    datacounter=0
-    for i in range(numstep):
-        print("SIMULATION STEP %s OUT OF %d" %(i+1,numstep))
-        
-        if datacounter == 30 or i ==0:
-            rdf, rdf_x_axis = Particle3D.radial_distribution(particles,L)
-            plt.plot(rdf_x_axis,rdf)
-            datacounter = 0
-        datacounter +=1
-        
-        trajout.write(str(numpar)+"\n")
-        trajout.write("Point = "+str(i+1)+"\n")
-        if i != 0:
-            Particle3D.leap_pos(particles,dt,rc,L)
-            Particle3D.leap_vel(particles,dt,rc,L)
-        else:
-            None
-        for j in range(len(particles)):
-            par = particles[j]
-            trajout.write(str(par)+"\n")
-    plt.show()
-
-"""
