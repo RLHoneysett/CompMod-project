@@ -154,7 +154,7 @@ class Particle3D(object):
         :param rc: cut-off distance
         :L: box side length
         """
-        start_time_forces=time.time()
+        #start_time_forces=time.time()
 
         loop_range = len(particles)
 
@@ -171,6 +171,7 @@ class Particle3D(object):
                     continue
  
         #print("--- %s s for Forces to run ---"%(time.time()-start_time_forces))
+
         return forces
     
     @staticmethod
@@ -183,15 +184,7 @@ class Particle3D(object):
         :param rc: cut-off distance
         :param L: box side length
         """
-        start_time_leappos = time.time()
-
-        # Slower, may delete
-
-        #forces = Particle3D.lj_forces(particles,rc,L)
-        #loop_range = len(particles)
-        #for i in range(loop_range):
-            #force = forces[i]
-            #particles[i].leap_pos_single(dt,force,L)
+        #start_time_leappos = time.time()
 
         def leap_pos_sing(particles,p,dt,forces,L):
             p.position += dt*p.velocity + 0.5*dt**2 * forces[particles.index(p)]/p.mass
@@ -200,6 +193,7 @@ class Particle3D(object):
         particles = list(map(lambda p: leap_pos_sing(particles,p,dt,forces,L), particles))
 
         #print("--- %s s for leap_pos to run ---"%(time.time() - start_time_leappos))
+
         return particles
         
     @staticmethod
@@ -212,15 +206,7 @@ class Particle3D(object):
         :param rc: cut-off distance
         :param L: box side length
         """
-        start_time_leapvel = time.time()
-
-        #Slower, may delete
-
-        #forces = Particle3D.lj_forces(particles,rc,L)
-        #loop_range = len(particles)
-        #for i in range(loop_range):
-            #force = forces[i]
-            #particles[i].leap_vel_single(dt,force)
+        #start_time_leapvel = time.time()
 
         def leap_vel_sing(particles,p,dt,forces):
             p.velocity += dt * forces[particles.index(p)] / p.mass
@@ -228,6 +214,7 @@ class Particle3D(object):
         particles = list(map(lambda p: leap_vel_sing(particles,p,dt,forces), particles))
             
         #print("---%s s for leap_vel to run ---"%(time.time()- start_time_leapvel))
+
         return particles
 
     @staticmethod
@@ -241,13 +228,15 @@ class Particle3D(object):
         """
         KE = 0
         PE = 0
+
+        # Loops through and finds KE for each particles, then finds PE between each particle,
+        # using j < i to avoid double counting particles
+
         for i in particles:
             KE += 0.5 * i.mass * (np.linalg.norm(i.velocity))**2
-            
-            for j in (particles):
+            for j in particles:
                 if particles.index(j) < particles.index(i):
-                    PE += Particle3D.lj_potential_single(i, j, rc, L)
-
+                    PE += Particle3D.lj_potential_single(i,j, rc, L)
         energy = KE + PE
         return KE, PE, energy
 
@@ -280,13 +269,12 @@ class Particle3D(object):
             for q in particles:
                 if p != q:
                     distances.append(np.linalg.norm(Particle3D.separation(p,q,L)))
-                else:
-                    continue
-        distances = np.around(np.sort(np.array(distances)), decimals=1 )
+
+        distances = np.around(np.sort(np.array(distances)), decimals=2 )
         
-        #Loop through and add up how many particles are in each 0.1 bin
+        #Loop through and add up how many particles are in each 0.01 bin
         rdf = []
-        rdf_x_axis = np.around(np.arange(0,L,0.1),decimals=1)
+        rdf_x_axis = np.around(np.arange(0,L,0.01),decimals=2)
         loop_range = len(rdf_x_axis)
         j = 0
         for i in range(loop_range):
@@ -297,4 +285,13 @@ class Particle3D(object):
             else:
                 continue
         return np.array(rdf), rdf_x_axis
-        
+
+    @staticmethod
+    def rdf_normalized(rho,rdf,rdf_x_axis):
+        """
+        Normalizes the rdf, noting that the average number of particles expected at distance
+        r is 4(pi)(r^2)(rho)(dr)
+        """
+        normalization = list(map(lambda r: 4 * math.pi * r**2 * rdf_x_axis[1], rdf_x_axis))
+        rdf_norm = rdf / normalization
+        return rdf_norm
